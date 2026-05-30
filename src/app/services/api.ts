@@ -15,7 +15,7 @@ export interface AskResponse {
   providedIn: 'root'
 })
 export class Api {
-  private baseUrl = 'http://127.0.0.1:8000';
+  private baseUrl = 'https://analytics-chatbot-api-165509171640.us-central1.run.app';
 
   constructor(private http: HttpClient) {}
 
