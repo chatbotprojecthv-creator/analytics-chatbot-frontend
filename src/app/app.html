@@ -1,55 +1,45 @@
-<div class="page-shell">
+<div class="chatgpt-shell">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div>
-      <div class="brand">
-        <div class="brand-icon">✦</div>
-
+  <aside class="app-sidebar">
+    <div class="sidebar-top">
+      <div class="brand-row">
+        <div class="brand-logo">PA</div>
         <div>
           <h2>Pharma Analytics</h2>
-          <p>Customer Reporting Tool</p>
+          <p>AI Reporting Assistant</p>
         </div>
       </div>
 
-      <nav class="sidebar-nav">
-        <a
-          [class.active]="activePage === 'dashboard'"
-          (click)="setPage('dashboard')"
-        >
-          ⌂ Dashboard
-        </a>
+      <button class="new-chat-btn" type="button" (click)="closeReport()">
+        + New Analysis
+      </button>
 
-        <a
-          [class.active]="activePage === 'workspace'"
-          (click)="setPage('workspace')"
-        >
-          📊 Analytics Workspace
-        </a>
+      <nav class="side-menu">
+        <button type="button" [class.active]="activePage === 'dashboard'" (click)="setPage('dashboard')">
+          ⌂ Home
+        </button>
 
-        <a
-          [class.active]="activePage === 'saved'"
-          (click)="setPage('saved')"
-        >
-          ⭐ Saved Reports
-        </a>
+        <button type="button" [class.active]="activePage === 'workspace'" (click)="setPage('workspace')">
+          ✦ Workspace
+        </button>
 
-        <a
-          [class.active]="activePage === 'history'"
-          (click)="setPage('history')"
-        >
-          🕒 History
-        </a>
+        <button type="button" [class.active]="activePage === 'saved'" (click)="setPage('saved')">
+          ☆ Saved Reports
+        </button>
+
+        <button type="button" [class.active]="activePage === 'history'" (click)="setPage('history')">
+          ◷ History
+        </button>
+
+        <button type="button" [class.active]="activePage === 'settings'" (click)="setPage('settings')">
+          ⚙ Settings
+        </button>
       </nav>
     </div>
 
-    <div class="sidebar-footer">
-      <p (click)="setPage('settings')">⚙ Settings</p>
-      <p (click)="setPage('help')">❔ Help & Support</p>
-
+    <div class="sidebar-bottom">
       <div class="profile-box">
-        <div class="profile-avatar">AD</div>
-
+        <div class="profile-avatar">HV</div>
         <div>
           <strong>Analytics Demo</strong>
           <span>analyst&#64;hpharma.com</span>
@@ -58,519 +48,119 @@
     </div>
   </aside>
 
-  <!-- MAIN -->
-  <main class="main-content">
+  <main class="chat-main">
 
-    <!-- DASHBOARD PAGE -->
-    <ng-container *ngIf="activePage === 'dashboard'">
-
-      <header class="page-header">
-        <h1>Pharma Analytics Dashboard</h1>
-        <p>
-          Monitor analytics activity, generate reports,
-          and explore medicine datasets using natural language.
-        </p>
-      </header>
-
-      <div class="dashboard-stats">
-        <div class="stat-card">
-          <h3>{{ reportHistory.length }}</h3>
-          <p>Reports Generated</p>
-        </div>
-
-        <div class="stat-card">
-          <h3>{{ savedReports.length }}</h3>
-          <p>Saved Reports</p>
-        </div>
-
-        <div class="stat-card">
-          <h3>{{ clients.length }}</h3>
-          <p>Available Clients</p>
-        </div>
+    <header class="chat-topbar">
+      <div>
+        <h1>Pharma Analytics Assistant</h1>
+        <p>Ask questions about pharma datasets using natural language.</p>
       </div>
 
-      <section class="home-card">
-        <div class="home-config">
-          <div class="config-icon">▣</div>
+      <div class="client-selector">
+        <label>Client</label>
+        <select [(ngModel)]="selectedClient">
+          <option value="">Choose Client</option>
+          <option *ngFor="let client of clients" [value]="client">
+            {{ client }}
+          </option>
+        </select>
+      </div>
+    </header>
 
-          <div class="client-form">
-            <h2>Select Client</h2>
-            <p>Choose the customer dataset you want to analyze.</p>
+    <ng-container *ngIf="activePage === 'dashboard' || activePage === 'workspace'">
 
-            <select [(ngModel)]="selectedClient">
-              <option value="">Choose Client</option>
+      <section class="welcome-panel" *ngIf="!messages.length && !loading">
+        <div class="welcome-icon">✦</div>
 
-              <option
-                *ngFor="let client of clients"
-                [value]="client"
-              >
-                {{ client }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="summary-strip">
-          <div>
-            <h3>Report Configuration Summary</h3>
-            <p>
-              <strong>Client:</strong>
-              {{ selectedClient || 'None selected' }}
-            </p>
-          </div>
-
-          <button
-            class="generate-btn"
-            (click)="openReport()"
-          >
-            Open Analytics Workspace
-          </button>
-        </div>
-
-        <div
-          *ngIf="errorMessage && !reportOpened"
-          class="error-box"
-        >
-          {{ errorMessage }}
-        </div>
-      </section>
-
-      <section class="empty-state">
-        <h2>AI Analytics Workspace</h2>
+        <h2>What would you like to analyze today?</h2>
         <p>
-          Select a client and open the analytics workspace
-          to ask natural language questions.
+          Select a pharma client and ask a business question. The assistant will generate SQL,
+          query BigQuery, and return charts, summary, and data.
         </p>
-      </section>
 
-    </ng-container>
+        <div class="stats-row">
+          <div class="mini-stat">
+            <strong>{{ reportHistory.length }}</strong>
+            <span>Reports Generated</span>
+          </div>
 
-    <!-- ANALYTICS WORKSPACE PAGE -->
-    <ng-container *ngIf="activePage === 'workspace' && !reportOpened">
+          <div class="mini-stat">
+            <strong>{{ savedReports.length }}</strong>
+            <span>Saved Reports</span>
+          </div>
 
-      <header class="page-header">
-        <h1>Analytics Workspace</h1>
-        <p>Start a reporting workspace for one of your pharma clients.</p>
-      </header>
-
-      <section class="home-card">
-        <div class="home-config">
-          <div class="config-icon">📊</div>
-
-          <div class="client-form">
-            <h2>Start New Analysis</h2>
-            <p>Select a client to open the AI analytics workspace.</p>
-
-            <select [(ngModel)]="selectedClient">
-              <option value="">Choose Client</option>
-
-              <option
-                *ngFor="let client of clients"
-                [value]="client"
-              >
-                {{ client }}
-              </option>
-            </select>
+          <div class="mini-stat">
+            <strong>{{ clients.length }}</strong>
+            <span>Available Clients</span>
           </div>
         </div>
 
-        <div class="summary-strip">
-          <div>
-            <h3>Selected Client</h3>
-            <p>{{ selectedClient || 'None selected' }}</p>
-          </div>
-
-          <button
-            class="generate-btn"
-            (click)="openReport()"
-          >
-            Open Workspace
-          </button>
-        </div>
-      </section>
-
-    </ng-container>
-
-    <!-- SAVED REPORTS PAGE -->
-    <ng-container *ngIf="activePage === 'saved'">
-
-      <header class="page-header">
-        <h1>Saved Reports</h1>
-        <p>Reports you saved during this session.</p>
-      </header>
-
-      <section class="home-card">
-        <div class="section-header-row">
-          <h2>Saved Reports</h2>
-
-          <button
-            class="secondary-btn"
-            *ngIf="savedReports.length"
-            (click)="clearSavedReports()"
-          >
-            Clear Saved
-          </button>
-        </div>
-
-        <div
-          *ngIf="!savedReports.length"
-          class="empty-output"
-        >
-          <h3>No saved reports yet</h3>
-          <p>Run a report and click Save Report to store it here.</p>
-        </div>
-
-        <div
-          *ngFor="let report of savedReports"
-          class="report-list-item"
-        >
-          <div>
-            <h3>{{ report.question }}</h3>
-            <p>
-              <strong>Client:</strong> {{ report.client }}
-              ·
-              <strong>Saved:</strong> {{ report.savedAt }}
-            </p>
-          </div>
-
-          <button
-            class="generate-btn"
-            (click)="openSavedReport(report)"
-          >
-            Open
-          </button>
-        </div>
-      </section>
-
-    </ng-container>
-
-    <!-- HISTORY PAGE -->
-    <ng-container *ngIf="activePage === 'history'">
-
-      <header class="page-header">
-        <h1>History</h1>
-        <p>Questions asked during this session.</p>
-      </header>
-
-      <section class="home-card">
-        <div class="section-header-row">
-          <h2>Question History</h2>
-
-          <button
-            class="secondary-btn"
-            *ngIf="reportHistory.length"
-            (click)="clearHistory()"
-          >
-            Clear History
-          </button>
-        </div>
-
-        <div
-          *ngIf="!reportHistory.length"
-          class="empty-output"
-        >
-          <h3>No history yet</h3>
-          <p>Your completed report questions will appear here.</p>
-        </div>
-
-        <div
-          *ngFor="let report of reportHistory"
-          class="report-list-item"
-        >
-          <div>
-            <h3>{{ report.question }}</h3>
-            <p>
-              <strong>Client:</strong> {{ report.client }}
-              ·
-              <strong>Created:</strong> {{ report.createdAt }}
-            </p>
-          </div>
-
-          <button
-            class="generate-btn"
-            (click)="openHistoryReport(report)"
-          >
-            Reopen
-          </button>
-        </div>
-      </section>
-
-    </ng-container>
-
-    <!-- SETTINGS PAGE -->
-    <ng-container *ngIf="activePage === 'settings'">
-
-      <header class="page-header">
-        <h1>Settings</h1>
-        <p>Frontend settings for the analytics workspace.</p>
-      </header>
-
-      <section class="home-card">
-        <div class="settings-grid">
-          <div class="settings-card">
-            <h3>Default Client</h3>
-            <p>Select the client you want to use by default.</p>
-
-            <select [(ngModel)]="selectedClient">
-              <option value="">Choose Client</option>
-
-              <option
-                *ngFor="let client of clients"
-                [value]="client"
-              >
-                {{ client }}
-              </option>
-            </select>
-          </div>
-
-          <div class="settings-card">
-            <h3>Default Visualization</h3>
-            <p>Choose the default chart type for new reports.</p>
-
-            <select [(ngModel)]="selectedChartType">
-              <option
-                *ngFor="let chart of chartTypes"
-                [value]="chart.value"
-              >
-                {{ chart.label }}
-              </option>
-            </select>
-          </div>
-        </div>
-      </section>
-
-    </ng-container>
-
-    <!-- HELP PAGE -->
-    <ng-container *ngIf="activePage === 'help'">
-
-      <header class="page-header">
-        <h1>Help & Support</h1>
-        <p>Use these examples to test the reporting workspace.</p>
-      </header>
-
-      <section class="home-card">
-        <h2>Example Questions</h2>
-
-        <div class="help-list">
-          <p>Show top 5 therapeutic classes by medicine count</p>
-          <p>Show medicines used for pain</p>
-          <p>Which medicines have nausea as a side effect?</p>
-          <p>Show medicines that are habit forming</p>
-          <p>Show top 10 action classes by medicine count</p>
-        </div>
-      </section>
-
-    </ng-container>
-
-  </main>
-
-  <!-- REPORT POPUP MODAL -->
-  <div *ngIf="reportOpened" class="report-overlay">
-
-    <div class="report-modal">
-
-      <section class="workspace-card">
-
-        <!-- TOP HEADER -->
-        <div class="workspace-header">
-
-          <div>
-            <h2>
-              {{ selectedClient }} Reporting Workspace
-            </h2>
-
-            <div class="workspace-tags">
-              <span class="tag">
-                Client: {{ selectedClient }}
-              </span>
-
-              <span class="tag success">
-                ● Connected to BigQuery
-              </span>
+        <div class="prompt-group-grid">
+          <div class="prompt-group" *ngFor="let group of promptGroups">
+            <div class="prompt-group-title">
+              <span>{{ group.icon }}</span>
+              <h3>{{ group.title }}</h3>
             </div>
-          </div>
-
-          <div class="workspace-actions">
 
             <button
-              class="secondary-btn save-btn"
               type="button"
-              *ngIf="messages.length > 0"
-              (click)="saveCurrentReport(messages[0])"
->
-  ☆ Save Report
-</button>
-
-            <button class="secondary-btn">
-              ⇩ Export
-            </button>
-
-            <button
-              class="close-btn"
-              (click)="closeReport()"
+              *ngFor="let prompt of group.prompts"
+              (click)="useSuggestedQuestion(prompt)"
             >
-              ✕
+              {{ prompt }}
             </button>
           </div>
         </div>
+      </section>
 
-        <!-- MAIN GRID -->
-        <div class="workspace-grid">
+      <section class="chat-thread" *ngIf="messages.length || loading">
 
-          <!-- LEFT CHAT PANEL -->
-          <section class="chat-panel">
+        <div *ngFor="let message of messages" class="chat-exchange">
 
-            <div class="chat-top">
-              <div class="chat-status">
-                <span class="green-dot"></span>
-                Reporting Workspace
-              </div>
-
-              <span class="status-text">
-                Connected
-              </span>
+          <div class="chat-row user-chat">
+            <div class="chat-avatar user-avatar">U</div>
+            <div class="chat-bubble user-bubble">
+              <p>{{ message.question }}</p>
+              <span>{{ message.timestamp }}</span>
             </div>
+          </div>
 
-            <h3>Conversation</h3>
+          <div class="chat-row ai-chat">
+            <div class="chat-avatar ai-avatar">AI</div>
 
-            <div class="conversation-area">
-
-              <div
-                *ngIf="!messages.length"
-                class="empty-chat"
-              >
-                Ask a reporting question to generate
-                summary, chart, SQL, and data.
-              </div>
-
-              <div
-                *ngFor="let message of messages"
-                class="message-wrapper"
-              >
-                <div class="user-row">
-                  <div class="avatar user-avatar">U</div>
-
-                  <div class="message user-message">
-                    {{ message.question }}
-
-                    <span class="message-time">
-                      {{ message.timestamp }}
-                    </span>
-                  </div>
+            <div class="ai-response-card">
+              <div class="response-header">
+                <div>
+                  <h3>Report generated</h3>
+                  <p>
+                    Client: {{ message.client }}
+                    <span class="inline-badge">SQL validated</span>
+                    <span class="inline-badge green">BigQuery connected</span>
+                  </p>
                 </div>
 
-                <div class="ai-row">
-                  <div class="avatar ai-avatar">AI</div>
-
-                  <div class="message ai-message">
-                    Report generated successfully.
-                    Review the summary and chart output.
-
-                    <span class="message-time">
-                      {{ message.timestamp }}
-                    </span>
-                  </div>
-                </div>
+                <button class="secondary-btn" type="button" (click)="saveCurrentReport(message)">
+                  ☆ Save
+                </button>
               </div>
-            </div>
 
-            <form
-              class="chat-input-box"
-              (ngSubmit)="askQuestion()"
-            >
-              <textarea
-                [(ngModel)]="question"
-                name="question"
-                placeholder="Ask a reporting question..."
-                [disabled]="loading"
-              ></textarea>
+              <div class="tabs-row">
+                <button type="button" class="tab" [class.active]="activeTab === 'summary'" (click)="activeTab = 'summary'">
+                  Summary
+                </button>
 
-              <button
-                class="submit-btn"
-                type="submit"
-                [disabled]="loading || !question.trim()"
-              >
-                {{ loading ? 'Generating...' : 'Generate Report' }}
-              </button>
-            </form>
+                <button type="button" class="tab" [class.active]="activeTab === 'data'" (click)="activeTab = 'data'">
+                  Data Preview
+                </button>
 
-            <div
-              *ngIf="loading"
-              class="loading-box"
-            >
-              Generating report, querying BigQuery,
-              and preparing analytics...
-            </div>
+                <button type="button" class="tab" [class.active]="activeTab === 'sql'" (click)="activeTab = 'sql'">
+                  SQL Generated
+                </button>
+              </div>
 
-            <div
-              *ngIf="errorMessage && reportOpened"
-              class="error-box"
-            >
-              {{ errorMessage }}
-            </div>
-
-          </section>
-
-          <!-- RIGHT OUTPUT PANEL -->
-          <section class="results-panel">
-
-            <div class="tabs-row">
-              <button
-                class="tab"
-                [class.active]="activeTab === 'summary'"
-                (click)="activeTab = 'summary'"
-              >
-                Summary
-              </button>
-
-              <button
-                class="tab"
-                [class.active]="activeTab === 'data'"
-                (click)="activeTab = 'data'"
-              >
-                Data Preview
-              </button>
-
-              <button
-                class="tab"
-                [class.active]="activeTab === 'sql'"
-                (click)="activeTab = 'sql'"
-              >
-                SQL Generated
-              </button>
-            </div>
-
-            <div
-              *ngIf="loading"
-              class="output-loading"
-            >
-              <h3>Generating report...</h3>
-              <p>Running query, preparing summary, chart, SQL, and data preview.</p>
-            </div>
-
-            <div
-              *ngIf="!messages.length && !loading"
-              class="empty-output"
-            >
-              <h3>Report output will appear here</h3>
-              <p>
-                Run a question to view AI summary,
-                chart output, generated SQL,
-                and data preview.
-              </p>
-            </div>
-
-            <div *ngFor="let message of messages">
-
-              <!-- SUMMARY TAB -->
-              <div
-                class="results-grid"
-                *ngIf="activeTab === 'summary' && !loading"
-              >
-
+              <div *ngIf="activeTab === 'summary'" class="summary-layout">
                 <div class="summary-card">
-                  <h3>▣ AI Summary</h3>
+                  <h3>AI Summary</h3>
 
                   <div class="summary-content">
                     {{ message.response.summary }}
@@ -582,31 +172,20 @@
                 </div>
 
                 <div class="chart-card">
-
                   <div class="chart-card-header">
                     <h3>Chart Output</h3>
 
-                    <div class="visual-config">
-                      <label>Configure Chart:</label>
-
-                      <select
-                        [(ngModel)]="selectedChartType"
-                        (ngModelChange)="updateChartType(message, $event)"
-                      >
-                        <option
-                          *ngFor="let chart of chartTypes"
-                          [value]="chart.value"
-                        >
-                          {{ chart.label }}
-                        </option>
-                      </select>
-                    </div>
+                    <select
+                      [(ngModel)]="selectedChartType"
+                      (ngModelChange)="updateChartType(message, $event)"
+                    >
+                      <option *ngFor="let chart of chartTypes" [value]="chart.value">
+                        {{ chart.label }}
+                      </option>
+                    </select>
                   </div>
 
-                  <div
-                    class="chart-wrapper"
-                    *ngIf="message.response.chart && message.chartType !== 'table'"
-                  >
+                  <div class="chart-wrapper" *ngIf="message.response.chart && message.chartType !== 'table'">
                     <canvas
                       baseChart
                       [data]="message.chartData"
@@ -615,41 +194,24 @@
                     </canvas>
                   </div>
 
-                  <div
-                    *ngIf="message.chartType === 'table'"
-                    class="table-chart-note"
-                  >
-                    Table Only selected. View results in the Data Preview tab.
+                  <div *ngIf="message.chartType === 'table'" class="table-chart-note">
+                    Table Only selected. Open Data Preview to view results.
                   </div>
 
-                  <div
-                    *ngIf="!message.response.chart"
-                    class="no-chart"
-                  >
+                  <div *ngIf="!message.response.chart" class="no-data">
                     No chart generated for this question.
                   </div>
-
                 </div>
-
               </div>
 
-              <!-- DATA TAB -->
-              <div
-                class="data-card"
-                *ngIf="activeTab === 'data' && !loading"
-              >
+              <div class="data-card" *ngIf="activeTab === 'data'">
                 <h3>Data Preview</h3>
 
-                <div
-                  class="table-container"
-                  *ngIf="message.response.data?.length"
-                >
+                <div class="table-container" *ngIf="message.response.data?.length">
                   <table>
                     <thead>
                       <tr>
-                        <th
-                          *ngFor="let key of objectKeys(message.response.data[0])"
-                        >
+                        <th *ngFor="let key of objectKeys(message.response.data[0])">
                           {{ key }}
                         </th>
                       </tr>
@@ -665,33 +227,149 @@
                   </table>
                 </div>
 
-                <div
-                  *ngIf="!message.response.data?.length"
-                  class="no-data"
-                >
-                  No data returned for this question.
+                <div *ngIf="!message.response.data?.length" class="no-data">
+                  No data returned.
                 </div>
               </div>
 
-              <!-- SQL TAB -->
-              <div
-                class="sql-card"
-                *ngIf="activeTab === 'sql' && !loading"
-              >
-                <h3>Generated SQL</h3>
+              <div class="sql-card" *ngIf="activeTab === 'sql'">
+                <div class="sql-header">
+                  <h3>Generated SQL</h3>
+                  <button type="button" (click)="copySql(message.response.sql)">
+                    Copy SQL
+                  </button>
+                </div>
+
                 <pre>{{ message.response.sql }}</pre>
               </div>
-
             </div>
+          </div>
+        </div>
 
-          </section>
-
+        <div class="chat-row ai-chat" *ngIf="loading">
+          <div class="chat-avatar ai-avatar">AI</div>
+          <div class="loading-card">
+            Generating SQL, querying BigQuery, and preparing report...
+          </div>
         </div>
 
       </section>
 
-    </div>
+      <div *ngIf="errorMessage" class="error-box">
+        {{ errorMessage }}
+      </div>
 
-  </div>
+      <form class="chat-composer" (ngSubmit)="askQuestion()">
+        <div class="composer-inner">
+          <div class="composer-meta">
+            <span class="client-pill">{{ selectedClient || 'No client selected' }}</span>
+            <span class="status-pill">● BigQuery connected</span>
+            <span class="status-pill blue">Cloud Run API active</span>
+          </div>
 
+          <div class="composer-row">
+            <textarea
+              [(ngModel)]="question"
+              name="question"
+              placeholder="Ask anything about medicines, classes, manufacturers, or reports..."
+              [disabled]="loading"
+            ></textarea>
+
+            <button type="submit" [disabled]="loading || !question.trim()">
+              {{ loading ? '...' : '➜' }}
+            </button>
+          </div>
+        </div>
+      </form>
+
+    </ng-container>
+
+    <ng-container *ngIf="activePage === 'saved'">
+      <section class="page-section">
+        <div class="section-header-row">
+          <div>
+            <h2>Saved Reports</h2>
+            <p>Reports saved during this session.</p>
+          </div>
+
+          <button class="secondary-btn" type="button" *ngIf="savedReports.length" (click)="clearSavedReports()">
+            Clear Saved
+          </button>
+        </div>
+
+        <div *ngIf="!savedReports.length" class="empty-card">
+          No saved reports yet.
+        </div>
+
+        <div *ngFor="let report of savedReports" class="report-list-item">
+          <div>
+            <h3>{{ report.question }}</h3>
+            <p>{{ report.client }} · {{ report.savedAt }}</p>
+          </div>
+
+          <button class="primary-small-btn" type="button" (click)="openSavedReport(report)">
+            Open
+          </button>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngIf="activePage === 'history'">
+      <section class="page-section">
+        <div class="section-header-row">
+          <div>
+            <h2>History</h2>
+            <p>Questions asked during this session.</p>
+          </div>
+
+          <button class="secondary-btn" type="button" *ngIf="reportHistory.length" (click)="clearHistory()">
+            Clear History
+          </button>
+        </div>
+
+        <div *ngIf="!reportHistory.length" class="empty-card">
+          No history yet.
+        </div>
+
+        <div *ngFor="let report of reportHistory" class="report-list-item">
+          <div>
+            <h3>{{ report.question }}</h3>
+            <p>{{ report.client }} · {{ report.createdAt }}</p>
+          </div>
+
+          <button class="primary-small-btn" type="button" (click)="openHistoryReport(report)">
+            Reopen
+          </button>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngIf="activePage === 'settings'">
+      <section class="page-section">
+        <h2>Settings</h2>
+
+        <div class="settings-grid">
+          <div class="settings-card">
+            <h3>Default Client</h3>
+            <select [(ngModel)]="selectedClient">
+              <option value="">Choose Client</option>
+              <option *ngFor="let client of clients" [value]="client">
+                {{ client }}
+              </option>
+            </select>
+          </div>
+
+          <div class="settings-card">
+            <h3>Default Visualization</h3>
+            <select [(ngModel)]="selectedChartType">
+              <option *ngFor="let chart of chartTypes" [value]="chart.value">
+                {{ chart.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+
+  </main>
 </div>

@@ -23,13 +23,49 @@ export class App {
   clients = ['Hpharma', 'Jpharma', 'Vpharma'];
   activePage: PageType = 'dashboard';
 
-  selectedClient = '';
+  selectedClient = 'Jpharma';
   reportOpened = false;
   question = '';
   loading = false;
   errorMessage = '';
 
   activeTab: 'summary' | 'data' | 'sql' = 'summary';
+
+  suggestedQuestions = [
+    'Show top 5 therapeutic classes by medicine count',
+    'Show total number of medicines',
+    'Which therapeutic class has the highest number of medicines?',
+    'Show medicine count by therapeutic class',
+    'Show top 10 manufacturers by medicine count',
+    'What medication class does Amipar belong to?'
+  ];
+
+  promptGroups = [
+    {
+      title: 'Explore Data',
+      icon: '📊',
+      prompts: [
+        'Show total number of medicines',
+        'Show medicine count by therapeutic class'
+      ]
+    },
+    {
+      title: 'Compare Classes',
+      icon: '⚖️',
+      prompts: [
+        'Show top 5 therapeutic classes by medicine count',
+        'Which therapeutic class has the highest number of medicines?'
+      ]
+    },
+    {
+      title: 'Find Medicine',
+      icon: '🔎',
+      prompts: [
+        'What medication class does Amipar belong to?',
+        'Show medicines used for pain'
+      ]
+    }
+  ];
 
   chartTypes: { label: string; value: ChartType }[] = [
     { label: 'Auto', value: 'auto' },
@@ -66,7 +102,15 @@ export class App {
   setPage(page: PageType) {
     this.activePage = page;
     this.errorMessage = '';
+    this.reportOpened = page === 'workspace';
     this.cdr.detectChanges();
+  }
+
+  useSuggestedQuestion(prompt: string) {
+    this.question = prompt;
+    this.activePage = 'workspace';
+    this.reportOpened = true;
+    this.askQuestion();
   }
 
   openReport() {
@@ -109,25 +153,25 @@ export class App {
     }, 0);
   }
 
- saveCurrentReport(message: any) {
-  const alreadySaved = this.savedReports.some(
-    report =>
-      report.question === message.question &&
-      report.client === message.client &&
-      report.timestamp === message.timestamp
-  );
+  saveCurrentReport(message: any) {
+    const alreadySaved = this.savedReports.some(
+      report =>
+        report.question === message.question &&
+        report.client === message.client &&
+        report.timestamp === message.timestamp
+    );
 
-  if (!alreadySaved) {
-    this.savedReports.unshift({
-      ...message,
-      savedAt: new Date().toLocaleString()
-    });
+    if (!alreadySaved) {
+      this.savedReports.unshift({
+        ...message,
+        savedAt: new Date().toLocaleString()
+      });
+    }
+
+    this.activePage = 'saved';
+    this.reportOpened = false;
+    this.cdr.detectChanges();
   }
-
-  this.reportOpened = false;
-  this.activePage = 'saved';
-  this.cdr.detectChanges();
-}
 
   openSavedReport(report: any) {
     this.selectedClient = report.client;
@@ -167,7 +211,17 @@ export class App {
     this.cdr.detectChanges();
   }
 
+  copySql(sql: string | null) {
+    if (!sql) return;
+    navigator.clipboard.writeText(sql);
+  }
+
   async askQuestion() {
+    if (!this.selectedClient) {
+      this.errorMessage = 'Please select a client.';
+      return;
+    }
+
     if (!this.question.trim()) {
       this.errorMessage = 'Please enter a question.';
       return;
@@ -177,6 +231,8 @@ export class App {
 
     this.loading = true;
     this.errorMessage = '';
+    this.activePage = 'workspace';
+    this.reportOpened = true;
     this.activeTab = 'summary';
     this.cdr.detectChanges();
 
