@@ -1,7 +1,8 @@
-<div class="chatgpt-shell">
+<div class="claude-shell">
+  <div class="mobile-overlay" *ngIf="mobileMenuOpen" (click)="closeMobileMenu()"></div>
 
-  <aside class="app-sidebar">
-    <div class="sidebar-top">
+  <aside class="claude-sidebar" [class.mobile-open]="mobileMenuOpen">
+    <div>
       <div class="brand-row">
         <div class="brand-logo">PA</div>
         <div>
@@ -10,292 +11,288 @@
         </div>
       </div>
 
-      <button class="new-chat-btn" type="button" (click)="closeReport()">
-        + New Analysis
-      </button>
+      <button class="new-chat-btn" type="button" (click)="closeReport()">+ New Analysis</button>
 
       <nav class="side-menu">
-        <button type="button" [class.active]="activePage === 'dashboard'" (click)="setPage('dashboard')">
-          ⌂ Home
-        </button>
-
-        <button type="button" [class.active]="activePage === 'workspace'" (click)="setPage('workspace')">
-          ✦ Workspace
-        </button>
-
-        <button type="button" [class.active]="activePage === 'saved'" (click)="setPage('saved')">
-          ☆ Saved Reports
-        </button>
-
-        <button type="button" [class.active]="activePage === 'history'" (click)="setPage('history')">
-          ◷ History
-        </button>
-
-        <button type="button" [class.active]="activePage === 'settings'" (click)="setPage('settings')">
-          ⚙ Settings
-        </button>
+        <button type="button" [class.active]="activePage === 'dashboard'" (click)="setPage('dashboard')">Home</button>
+        <button type="button" [class.active]="activePage === 'workspace'" (click)="setPage('workspace')">Workspace</button>
+        <button type="button" [class.active]="activePage === 'saved'" (click)="setPage('saved')">Saved Reports</button>
+        <button type="button" [class.active]="activePage === 'history'" (click)="setPage('history')">History</button>
+        <button type="button" [class.active]="activePage === 'settings'" (click)="setPage('settings')">Settings</button>
       </nav>
     </div>
 
-    <div class="sidebar-bottom">
-      <div class="profile-box">
-        <div class="profile-avatar">HV</div>
-        <div>
-          <strong>Analytics Demo</strong>
-          <span>analyst&#64;hpharma.com</span>
-        </div>
+    <div class="profile-box">
+      <div class="profile-avatar">HV</div>
+      <div>
+        <strong>Analytics Demo</strong>
+        <span>analyst&#64;hpharma.com</span>
       </div>
     </div>
   </aside>
 
-  <main class="chat-main">
+  <main class="claude-main" #mainContent>
+    <header class="mobile-header">
+      <button class="hamburger-btn" type="button" (click)="toggleMobileMenu()">☰</button>
+      <div>
+        <h1>Pharma Analytics</h1>
+        <p>AI Reporting Assistant</p>
+      </div>
+    </header>
 
-    <header class="chat-topbar">
+    <header class="claude-topbar">
       <div>
         <h1>Pharma Analytics Assistant</h1>
-        <p>Ask questions about pharma datasets using natural language.</p>
+        <p>Ask questions about your pharma warehouse using natural language.</p>
       </div>
 
       <div class="client-selector">
         <label>Client</label>
         <select [(ngModel)]="selectedClient">
           <option value="">Choose Client</option>
-          <option *ngFor="let client of clients" [value]="client">
-            {{ client }}
-          </option>
+          <option *ngFor="let client of clients" [value]="client">{{ client }}</option>
         </select>
       </div>
     </header>
 
     <ng-container *ngIf="activePage === 'dashboard' || activePage === 'workspace'">
+      <section class="claude-home" *ngIf="!messages.length && !loading">
+        <div class="hero-badge">AI + BigQuery + NL → SQL</div>
 
-      <section class="welcome-panel" *ngIf="!messages.length && !loading">
-        <div class="welcome-icon">✦</div>
+        <h2>Ask your pharma data anything.</h2>
 
-        <h2>What would you like to analyze today?</h2>
         <p>
-          Select a pharma client and ask a business question. The assistant will generate SQL,
-          query BigQuery, and return charts, summary, and data.
+          Generate analytics reports, charts, SQL, and summaries from your BigQuery pharma warehouse.
         </p>
 
-        <div class="stats-row">
-          <div class="mini-stat">
+        <div class="hero-search">
+          <textarea
+            [(ngModel)]="question"
+            name="homeQuestion"
+            placeholder="Ask about medicine counts, uses, side effects, client comparisons, or habit-forming medicines..."
+            [disabled]="loading"
+            (keydown)="handleKeyDown($event)">
+          </textarea>
+
+          <button type="button" (click)="askQuestion()" [disabled]="loading || !question.trim()">
+            ➜
+          </button>
+        </div>
+
+        <div class="quick-stats">
+          <div>
             <strong>{{ reportHistory.length }}</strong>
             <span>Reports Generated</span>
           </div>
 
-          <div class="mini-stat">
+          <div>
             <strong>{{ savedReports.length }}</strong>
             <span>Saved Reports</span>
           </div>
 
-          <div class="mini-stat">
+          <div>
             <strong>{{ clients.length }}</strong>
-            <span>Available Clients</span>
+            <span>Clients</span>
           </div>
         </div>
 
-        <div class="prompt-group-grid">
-          <div class="prompt-group" *ngFor="let group of promptGroups">
-            <div class="prompt-group-title">
-              <span>{{ group.icon }}</span>
-              <h3>{{ group.title }}</h3>
-            </div>
+        <div class="suggestion-grid">
+          <div class="suggestion-card" *ngFor="let group of promptGroups">
+            <h3>{{ group.icon }} {{ group.title }}</h3>
 
             <button
               type="button"
               *ngFor="let prompt of group.prompts"
-              (click)="useSuggestedQuestion(prompt)"
-            >
+              (click)="useSuggestedQuestion(prompt)">
               {{ prompt }}
             </button>
           </div>
         </div>
       </section>
 
-      <section class="chat-thread" *ngIf="messages.length || loading">
+      <section class="artifact-thread" *ngIf="messages.length || loading">
+        <div *ngFor="let message of messages" class="artifact-block">
+          <div class="question-card">
+            <div>
+              <span class="small-label">You asked</span>
+              <h2>{{ message.question }}</h2>
+              <p>{{ message.timestamp }} · {{ message.client }}</p>
+            </div>
 
-        <div *ngFor="let message of messages" class="chat-exchange">
+            <div class="user-dot">U</div>
+          </div>
 
-          <div class="chat-row user-chat">
-            <div class="chat-avatar user-avatar">U</div>
-            <div class="chat-bubble user-bubble">
-              <p>{{ message.question }}</p>
-              <span>{{ message.timestamp }}</span>
+          <div class="answer-card">
+            <div class="answer-header">
+              <div>
+                <span class="small-label">AI Answer</span>
+                <h2>{{ message.response.sql ? 'Analysis Report' : 'Analytics Assistant' }}</h2>
+              </div>
+
+              <button
+                class="secondary-btn"
+                type="button"
+                (click)="saveCurrentReport(message)"
+                *ngIf="message.response.sql">
+                Save Report
+              </button>
+            </div>
+
+            <div class="summary-content">
+              {{ message.response.summary }}
+            </div>
+
+            <div class="success-note" *ngIf="message.response.sql">
+              Query executed successfully through the NL → SQL pipeline.
             </div>
           </div>
 
-          <div class="chat-row ai-chat">
-            <div class="chat-avatar ai-avatar">AI</div>
+          <div class="guidance-card" *ngIf="!message.response.sql">
+            <div class="guidance-icon">💡</div>
 
-            <div class="ai-response-card">
-              <div class="response-header">
-                <div>
-                  <h3>Report generated</h3>
-                  <p>
-                    Client: {{ message.client }}
-                    <span class="inline-badge">SQL validated</span>
-                    <span class="inline-badge green">BigQuery connected</span>
-                  </p>
-                </div>
+            <h3>Oops, I can’t provide medical recommendations</h3>
 
-                <button class="secondary-btn" type="button" (click)="saveCurrentReport(message)">
-                  ☆ Save
-                </button>
+            <p>
+              I can help with pharma analytics, reports, and dataset insights — but I can’t suggest
+              medicines, treatments, prescriptions, dosages, or healthcare decisions.
+            </p>
+
+            <div class="guidance-examples">
+              <p>Try asking:</p>
+
+              <button type="button" (click)="useSuggestedQuestion('Show medicine count by client')">
+                Show medicine count by client
+              </button>
+
+              <button type="button" (click)="useSuggestedQuestion('Show most common uses by client')">
+                Show most common uses by client
+              </button>
+
+              <button type="button" (click)="useSuggestedQuestion('Show top side effects by client')">
+                Show top side effects by client
+              </button>
+            </div>
+          </div>
+
+          <div class="artifact-card" *ngIf="message.response.sql">
+            <div class="artifact-header">
+              <div>
+                <span class="small-label">Artifact</span>
+                <h3>Visualization</h3>
               </div>
 
-              <div class="tabs-row">
-                <button type="button" class="tab" [class.active]="activeTab === 'summary'" (click)="activeTab = 'summary'">
-                  Summary
-                </button>
+              <select
+                [(ngModel)]="selectedChartType"
+                (ngModelChange)="updateChartType(message, $event)">
+                <option *ngFor="let chart of chartTypes" [value]="chart.value">
+                  {{ chart.label }}
+                </option>
+              </select>
+            </div>
 
-                <button type="button" class="tab" [class.active]="activeTab === 'data'" (click)="activeTab = 'data'">
-                  Data Preview
-                </button>
+            <div class="chart-wrapper" *ngIf="message.response.chart && message.chartType !== 'table'">
+              <canvas
+                baseChart
+                [data]="message.chartData"
+                [type]="message.chartType"
+                [options]="message.chartOptions">
+              </canvas>
+            </div>
 
-                <button type="button" class="tab" [class.active]="activeTab === 'sql'" (click)="activeTab = 'sql'">
-                  SQL Generated
-                </button>
-              </div>
+            <div *ngIf="message.chartType === 'table'" class="empty-artifact">
+              Table view selected. See Data Preview below.
+            </div>
 
-              <div *ngIf="activeTab === 'summary'" class="summary-layout">
-                <div class="summary-card">
-                  <h3>AI Summary</h3>
+            <div *ngIf="!message.response.chart" class="empty-artifact">
+              No chart generated for this question.
+            </div>
+          </div>
 
-                  <div class="summary-content">
-                    {{ message.response.summary }}
-                  </div>
-
-                  <div class="query-status">
-                    ✓ Query executed through NL → SQL pipeline
-                  </div>
-                </div>
-
-                <div class="chart-card">
-                  <div class="chart-card-header">
-                    <h3>Chart Output</h3>
-
-                    <select
-                      [(ngModel)]="selectedChartType"
-                      (ngModelChange)="updateChartType(message, $event)"
-                    >
-                      <option *ngFor="let chart of chartTypes" [value]="chart.value">
-                        {{ chart.label }}
-                      </option>
-                    </select>
-                  </div>
-
-                  <div class="chart-wrapper" *ngIf="message.response.chart && message.chartType !== 'table'">
-                    <canvas
-                      baseChart
-                      [data]="message.chartData"
-                      [type]="message.chartType"
-                      [options]="message.chartOptions">
-                    </canvas>
-                  </div>
-
-                  <div *ngIf="message.chartType === 'table'" class="table-chart-note">
-                    Table Only selected. Open Data Preview to view results.
-                  </div>
-
-                  <div *ngIf="!message.response.chart" class="no-data">
-                    No chart generated for this question.
-                  </div>
-                </div>
-              </div>
-
-              <div class="data-card" *ngIf="activeTab === 'data'">
+          <div class="artifact-card" *ngIf="message.response.sql">
+            <div class="artifact-header">
+              <div>
+                <span class="small-label">Artifact</span>
                 <h3>Data Preview</h3>
-
-                <div class="table-container" *ngIf="message.response.data?.length">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th *ngFor="let key of objectKeys(message.response.data[0])">
-                          {{ key }}
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      <tr *ngFor="let row of message.response.data">
-                        <td *ngFor="let key of objectKeys(row)">
-                          {{ row[key] }}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div *ngIf="!message.response.data?.length" class="no-data">
-                  No data returned.
-                </div>
-              </div>
-
-              <div class="sql-card" *ngIf="activeTab === 'sql'">
-                <div class="sql-header">
-                  <h3>Generated SQL</h3>
-                  <button type="button" (click)="copySql(message.response.sql)">
-                    Copy SQL
-                  </button>
-                </div>
-
-                <pre>{{ message.response.sql }}</pre>
               </div>
             </div>
+
+            <div class="table-container" *ngIf="message.response.data?.length">
+              <table>
+                <thead>
+                  <tr>
+                    <th *ngFor="let key of objectKeys(message.response.data[0])">
+                      {{ key }}
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr *ngFor="let row of message.response.data">
+                    <td *ngFor="let key of objectKeys(row)">
+                      {{ row[key] }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div *ngIf="!message.response.data?.length" class="empty-artifact">
+              No data returned.
+            </div>
+          </div>
+
+          <div class="artifact-card sql-artifact" *ngIf="message.response.sql">
+            <div class="artifact-header">
+              <div>
+                <span class="small-label">Artifact</span>
+                <h3>Generated SQL</h3>
+              </div>
+
+              <button type="button" class="secondary-btn" (click)="copySql(message.response.sql)">
+                Copy SQL
+              </button>
+            </div>
+
+            <pre>{{ message.response.sql }}</pre>
           </div>
         </div>
 
-        <div class="chat-row ai-chat" *ngIf="loading">
-          <div class="chat-avatar ai-avatar">AI</div>
-          <div class="loading-card">
-            Generating SQL, querying BigQuery, and preparing report...
-          </div>
+        <div class="loading-card" *ngIf="loading && !messages.length">
+          Generating SQL, querying BigQuery, and preparing your report...
         </div>
-
       </section>
 
       <div *ngIf="errorMessage" class="error-box">
         {{ errorMessage }}
       </div>
 
-      <form class="chat-composer" (ngSubmit)="askQuestion()">
-        <div class="composer-inner">
-          <div class="composer-meta">
-            <span class="client-pill">{{ selectedClient || 'No client selected' }}</span>
-            <span class="status-pill">● BigQuery connected</span>
-            <span class="status-pill blue">Cloud Run API active</span>
-          </div>
+      <form class="claude-composer" *ngIf="messages.length" (ngSubmit)="askQuestion()">
+        <div class="composer-meta">
+          <span>{{ selectedClient || 'No client selected' }}</span>
+          <span>BigQuery connected</span>
+          <span>Cloud Run API active</span>
+        </div>
 
-          <div class="composer-row">
-            <textarea
-              [(ngModel)]="question"
-              name="question"
-              placeholder="Ask anything about medicines, classes, manufacturers, or reports..."
-              [disabled]="loading"
-            ></textarea>
+        <div class="composer-row">
+          <textarea
+            [(ngModel)]="question"
+            name="question"
+            placeholder="Ask a follow-up analytics question..."
+            [disabled]="loading"
+            (keydown)="handleKeyDown($event)">
+          </textarea>
 
-            <button type="submit" [disabled]="loading || !question.trim()">
-              {{ loading ? '...' : '➜' }}
-            </button>
-          </div>
+          <button type="submit" [disabled]="loading || !question.trim()">
+            {{ loading ? '...' : '➜' }}
+          </button>
         </div>
       </form>
-
     </ng-container>
 
     <ng-container *ngIf="activePage === 'saved'">
       <section class="page-section">
-        <div class="section-header-row">
-          <div>
-            <h2>Saved Reports</h2>
-            <p>Reports saved during this session.</p>
-          </div>
-
-          <button class="secondary-btn" type="button" *ngIf="savedReports.length" (click)="clearSavedReports()">
-            Clear Saved
-          </button>
-        </div>
+        <h2>Saved Reports</h2>
+        <p>Reports saved during this session.</p>
 
         <div *ngIf="!savedReports.length" class="empty-card">
           No saved reports yet.
@@ -307,7 +304,7 @@
             <p>{{ report.client }} · {{ report.savedAt }}</p>
           </div>
 
-          <button class="primary-small-btn" type="button" (click)="openSavedReport(report)">
+          <button class="secondary-btn" type="button" (click)="openSavedReport(report)">
             Open
           </button>
         </div>
@@ -316,16 +313,8 @@
 
     <ng-container *ngIf="activePage === 'history'">
       <section class="page-section">
-        <div class="section-header-row">
-          <div>
-            <h2>History</h2>
-            <p>Questions asked during this session.</p>
-          </div>
-
-          <button class="secondary-btn" type="button" *ngIf="reportHistory.length" (click)="clearHistory()">
-            Clear History
-          </button>
-        </div>
+        <h2>History</h2>
+        <p>Questions asked during this session.</p>
 
         <div *ngIf="!reportHistory.length" class="empty-card">
           No history yet.
@@ -337,7 +326,7 @@
             <p>{{ report.client }} · {{ report.createdAt }}</p>
           </div>
 
-          <button class="primary-small-btn" type="button" (click)="openHistoryReport(report)">
+          <button class="secondary-btn" type="button" (click)="openHistoryReport(report)">
             Reopen
           </button>
         </div>
@@ -348,28 +337,17 @@
       <section class="page-section">
         <h2>Settings</h2>
 
-        <div class="settings-grid">
-          <div class="settings-card">
-            <h3>Default Client</h3>
-            <select [(ngModel)]="selectedClient">
-              <option value="">Choose Client</option>
-              <option *ngFor="let client of clients" [value]="client">
-                {{ client }}
-              </option>
-            </select>
-          </div>
+        <div class="settings-card">
+          <h3>Default Client</h3>
 
-          <div class="settings-card">
-            <h3>Default Visualization</h3>
-            <select [(ngModel)]="selectedChartType">
-              <option *ngFor="let chart of chartTypes" [value]="chart.value">
-                {{ chart.label }}
-              </option>
-            </select>
-          </div>
+          <select [(ngModel)]="selectedClient">
+            <option value="">Choose Client</option>
+            <option *ngFor="let client of clients" [value]="client">
+              {{ client }}
+            </option>
+          </select>
         </div>
       </section>
     </ng-container>
-
   </main>
 </div>

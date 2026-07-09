@@ -1,12 +1,28 @@
-import { Component, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BaseChartDirective } from 'ng2-charts';
-import { firstValueFrom } from 'rxjs';
-import { Api } from './services/api';
+import { ChartConfiguration, ChartType } from 'chart.js';
 
-type ChartType = 'auto' | 'pie' | 'bar' | 'line' | 'table';
-type PageType = 'dashboard' | 'workspace' | 'saved' | 'history' | 'settings' | 'help';
+import { Api, AskResponse } from './services/api';
+
+type PageType = 'dashboard' | 'workspace' | 'saved' | 'history' | 'settings';
+type AppChartType = ChartType | 'table';
+
+interface ChatMessage {
+  question: string;
+  client: string;
+  timestamp: string;
+  response: AskResponse;
+  chartType: AppChartType;
+  chartData: ChartConfiguration['data'];
+  chartOptions: ChartConfiguration['options'];
+}
+
+interface StoredReport extends ChatMessage {
+  savedAt?: string;
+  createdAt?: string;
+}
 
 @Component({
   selector: 'app-root',
@@ -15,83 +31,58 @@ type PageType = 'dashboard' | 'workspace' | 'saved' | 'history' | 'settings' | '
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-export class App {
-  @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
+export class App implements OnInit {
+  @ViewChild('mainContent') mainContent!: ElementRef;
 
-  objectKeys = Object.keys;
-
-  clients = ['Hpharma', 'Jpharma', 'Vpharma'];
-  activePage: PageType = 'dashboard';
-
-  selectedClient = 'Jpharma';
-  reportOpened = false;
   question = '';
+  selectedClient = 'Medicines Master';
+  selectedChartType = 'auto';
+
   loading = false;
   errorMessage = '';
+  mobileMenuOpen = false;
+  activePage: PageType = 'dashboard';
 
-  activeTab: 'summary' | 'data' | 'sql' = 'summary';
+  clients = ['Medicines Master', 'Jpharma', 'Vpharma'];
 
-  suggestedQuestions = [
-    'Show top 5 therapeutic classes by medicine count',
-    'Show total number of medicines',
-    'Which therapeutic class has the highest number of medicines?',
-    'Show medicine count by therapeutic class',
-    'Show top 10 manufacturers by medicine count',
-    'What medication class does Amipar belong to?'
+  messages: ChatMessage[] = [];
+  savedReports: StoredReport[] = [];
+  reportHistory: StoredReport[] = [];
+
+  chartTypes = [
+    { label: 'Auto', value: 'auto' },
+    { label: 'Bar', value: 'bar' },
+    { label: 'Line', value: 'line' },
+    { label: 'Doughnut', value: 'doughnut' },
+    { label: 'Pie', value: 'pie' },
+    { label: 'Table Only', value: 'table' }
   ];
 
   promptGroups = [
     {
-      title: 'Explore Data',
-      icon: '📊',
+      title: 'Client Analytics',
+      icon: '🏢',
       prompts: [
-        'Show total number of medicines',
-        'Show medicine count by therapeutic class'
+        'Show medicine count by client',
+        'Compare Jpharma and Vpharma by habit forming medicines'
       ]
     },
     {
-      title: 'Compare Classes',
-      icon: '⚖️',
+      title: 'Medicine Usage',
+      icon: '💊',
       prompts: [
-        'Show top 5 therapeutic classes by medicine count',
-        'Which therapeutic class has the highest number of medicines?'
+        'Most common uses by client',
+        'Show top side effects for Jpharma'
       ]
     },
     {
-      title: 'Find Medicine',
-      icon: '🔎',
+      title: 'Risk Insights',
+      icon: '⚠️',
       prompts: [
-        'What medication class does Amipar belong to?',
-        'Show medicines used for pain'
+        'How many habit forming medicines exist by client',
+        'Which client has the highest percentage of habit forming medicines?'
       ]
     }
-  ];
-
-  chartTypes: { label: string; value: ChartType }[] = [
-    { label: 'Auto', value: 'auto' },
-    { label: 'Pie Chart', value: 'pie' },
-    { label: 'Bar Chart', value: 'bar' },
-    { label: 'Line Chart', value: 'line' },
-    { label: 'Table Only', value: 'table' }
-  ];
-
-  selectedChartType: ChartType = 'auto';
-
-  messages: any[] = [];
-  reportHistory: any[] = [];
-  savedReports: any[] = [];
-
-  chartColors = [
-    '#2563eb',
-    '#0f766e',
-    '#7c3aed',
-    '#ea580c',
-    '#0891b2',
-    '#65a30d',
-    '#dc2626',
-    '#4338ca',
-    '#0284c7',
-    '#16a34a'
   ];
 
   constructor(
@@ -99,61 +90,176 @@ export class App {
     private cdr: ChangeDetectorRef
   ) {}
 
-  setPage(page: PageType) {
-    this.activePage = page;
-    this.errorMessage = '';
-    this.reportOpened = page === 'workspace';
-    this.cdr.detectChanges();
+  ngOnInit(): void {
+    this.loadLocalStorage();
   }
 
-  useSuggestedQuestion(prompt: string) {
-    this.question = prompt;
-    this.activePage = 'workspace';
-    this.reportOpened = true;
-    this.askQuestion();
+  handleKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.askQuestion();
+    }
   }
 
-  openReport() {
-    if (!this.selectedClient) {
-      this.errorMessage = 'Please select a client.';
+  askQuestion(): void {
+    if (this.loading) {
       return;
     }
 
-    this.activePage = 'workspace';
-    this.reportOpened = true;
+    const trimmedQuestion = this.question.trim();
+
+    if (!trimmedQuestion) {
+      return;
+    }
+
+    this.loading = true;
     this.errorMessage = '';
-    this.activeTab = 'summary';
-    this.cdr.detectChanges();
+
+    const client = this.selectedClient || 'Medicines Master';
+
+    this.api.askQuestion(client, trimmedQuestion).subscribe({
+      next: (response: AskResponse) => {
+        const chartType = this.pickChartType(response);
+
+        const message: ChatMessage = {
+          question: trimmedQuestion,
+          client,
+          timestamp: this.getTime(),
+          response,
+          chartType,
+          chartData: this.buildChartData(response),
+          chartOptions: this.buildChartOptions(chartType)
+        };
+
+        this.loading = false;
+        this.messages = [message];
+        this.question = '';
+        this.activePage = 'workspace';
+
+        this.addToHistory(message);
+
+        this.cdr.detectChanges();
+
+        setTimeout(() => {
+          this.scrollToTop();
+        }, 100);
+      },
+
+      error: (error) => {
+        console.error('API error:', error);
+        this.errorMessage = 'Something went wrong. Please check backend connection and try again.';
+        this.loading = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
-  closeReport() {
-    this.reportOpened = false;
-    this.messages = [];
-    this.question = '';
-    this.loading = false;
-    this.errorMessage = '';
-    this.activeTab = 'summary';
-    this.selectedChartType = 'auto';
-    this.activePage = 'dashboard';
-    this.cdr.detectChanges();
+  useSuggestedQuestion(prompt: string): void {
+    if (this.loading) {
+      return;
+    }
+
+    this.question = prompt;
+    this.askQuestion();
   }
 
-  updateChartType(message: any, chartType: ChartType) {
-    const selectedType =
-      chartType === 'auto'
-        ? (message.response.chart?.type || 'bar')
-        : chartType;
+  pickChartType(response: AskResponse): AppChartType {
+    if (!response.sql || !response.chart) {
+      return 'table';
+    }
 
-    message.chartType = selectedType;
+    if (this.selectedChartType !== 'auto') {
+      return this.selectedChartType as AppChartType;
+    }
 
-    this.cdr.detectChanges();
+    const labels = response.chart.labels || [];
+    const xAxis = String(response.chart.xAxis || '').toLowerCase();
+    const yAxis = String(response.chart.yAxis || '').toLowerCase();
 
-    setTimeout(() => {
-      this.chart?.update();
-    }, 0);
+    if (!labels.length) {
+      return 'table';
+    }
+
+    if (
+      xAxis.includes('date') ||
+      xAxis.includes('month') ||
+      xAxis.includes('year')
+    ) {
+      return 'line';
+    }
+
+    if (
+      yAxis.includes('percentage') ||
+      yAxis.includes('percent') ||
+      yAxis.includes('rate')
+    ) {
+      return 'bar';
+    }
+
+    if (labels.length <= 4) {
+      return 'doughnut';
+    }
+
+    if (labels.length > 25) {
+      return 'table';
+    }
+
+    return 'bar';
   }
 
-  saveCurrentReport(message: any) {
+  updateChartType(message: ChatMessage, selectedType: string): void {
+    message.chartType =
+      selectedType === 'auto'
+        ? this.pickChartType(message.response)
+        : (selectedType as AppChartType);
+
+    message.chartData = this.buildChartData(message.response);
+    message.chartOptions = this.buildChartOptions(message.chartType);
+  }
+
+  buildChartData(response: AskResponse): ChartConfiguration['data'] {
+    return {
+      labels: response.chart?.labels || [],
+      datasets: [
+        {
+          label: response.chart?.yAxis || 'Value',
+          data: response.chart?.values || [],
+          borderWidth: 2
+        }
+      ]
+    };
+  }
+
+  buildChartOptions(chartType: AppChartType): ChartConfiguration['options'] {
+    const isAxisChart = chartType === 'bar' || chartType === 'line';
+
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top'
+        }
+      },
+      scales: isAxisChart
+        ? {
+            x: {
+              ticks: {
+                autoSkip: true,
+                maxRotation: 45,
+                minRotation: 0
+              }
+            },
+            y: {
+              beginAtZero: true
+            }
+          }
+        : undefined
+    };
+  }
+
+  saveCurrentReport(message: ChatMessage): void {
     const alreadySaved = this.savedReports.some(
       report =>
         report.question === message.question &&
@@ -161,138 +267,146 @@ export class App {
         report.timestamp === message.timestamp
     );
 
-    if (!alreadySaved) {
-      this.savedReports.unshift({
-        ...message,
-        savedAt: new Date().toLocaleString()
-      });
+    if (alreadySaved) {
+      return;
     }
 
-    this.activePage = 'saved';
-    this.reportOpened = false;
-    this.cdr.detectChanges();
+    const savedReport: StoredReport = {
+      ...message,
+      savedAt: new Date().toLocaleString()
+    };
+
+    this.savedReports.unshift(savedReport);
+    this.safeSetLocalStorage('savedReports', this.savedReports);
   }
 
-  openSavedReport(report: any) {
-    this.selectedClient = report.client;
-    this.messages = [report];
-    this.reportOpened = true;
-    this.activePage = 'workspace';
-    this.activeTab = 'summary';
+  addToHistory(message: ChatMessage): void {
+    const historyReport: StoredReport = {
+      ...message,
+      createdAt: new Date().toLocaleString()
+    };
 
-    this.cdr.detectChanges();
+    this.reportHistory.unshift(historyReport);
+    this.reportHistory = this.reportHistory.slice(0, 20);
+
+    this.safeSetLocalStorage('reportHistory', this.reportHistory);
+  }
+
+  openSavedReport(report: StoredReport): void {
+    this.messages = [report];
+    this.activePage = 'workspace';
+    this.closeMobileMenu();
 
     setTimeout(() => {
-      this.chart?.update();
-    }, 0);
+      this.scrollToTop();
+    }, 100);
   }
 
-  openHistoryReport(report: any) {
-    this.selectedClient = report.client;
+  openHistoryReport(report: StoredReport): void {
     this.messages = [report];
-    this.reportOpened = true;
     this.activePage = 'workspace';
-    this.activeTab = 'summary';
-
-    this.cdr.detectChanges();
+    this.closeMobileMenu();
 
     setTimeout(() => {
-      this.chart?.update();
-    }, 0);
+      this.scrollToTop();
+    }, 100);
   }
 
-  clearHistory() {
-    this.reportHistory = [];
-    this.cdr.detectChanges();
-  }
-
-  clearSavedReports() {
+  clearSavedReports(): void {
     this.savedReports = [];
-    this.cdr.detectChanges();
+    localStorage.removeItem('savedReports');
   }
 
-  copySql(sql: string | null) {
-    if (!sql) return;
+  clearHistory(): void {
+    this.reportHistory = [];
+    localStorage.removeItem('reportHistory');
+  }
+
+  closeReport(): void {
+    this.messages = [];
+    this.question = '';
+    this.errorMessage = '';
+    this.loading = false;
+    this.selectedChartType = 'auto';
+    this.activePage = 'dashboard';
+    this.closeMobileMenu();
+
+    setTimeout(() => {
+      this.scrollToTop();
+    }, 100);
+  }
+
+  setPage(page: PageType): void {
+    this.activePage = page;
+    this.closeMobileMenu();
+
+    setTimeout(() => {
+      this.scrollToTop();
+    }, 100);
+  }
+
+  toggleMobileMenu(): void {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  closeMobileMenu(): void {
+    this.mobileMenuOpen = false;
+  }
+
+  copySql(sql: string | null): void {
+    if (!sql) {
+      return;
+    }
+
     navigator.clipboard.writeText(sql);
   }
 
-  async askQuestion() {
-    if (!this.selectedClient) {
-      this.errorMessage = 'Please select a client.';
-      return;
+  objectKeys(obj: any): string[] {
+    return obj ? Object.keys(obj) : [];
+  }
+
+  getTime(): string {
+    return new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  scrollToTop(): void {
+    if (this.mainContent?.nativeElement) {
+      this.mainContent.nativeElement.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
     }
 
-    if (!this.question.trim()) {
-      this.errorMessage = 'Please enter a question.';
-      return;
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }
+
+  safeSetLocalStorage(key: string, value: unknown): void {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.error(`LocalStorage failed for ${key}`, error);
     }
+  }
 
-    const currentQuestion = this.question.trim();
-
-    this.loading = true;
-    this.errorMessage = '';
-    this.activePage = 'workspace';
-    this.reportOpened = true;
-    this.activeTab = 'summary';
-    this.cdr.detectChanges();
+  loadLocalStorage(): void {
+    try {
+      this.savedReports = JSON.parse(localStorage.getItem('savedReports') || '[]');
+    } catch {
+      this.savedReports = [];
+      localStorage.removeItem('savedReports');
+    }
 
     try {
-      const res = await firstValueFrom(
-        this.api.askQuestion(this.selectedClient, currentQuestion)
-      );
-
-      const selectedType =
-        this.selectedChartType === 'auto'
-          ? (res.chart?.type || 'bar')
-          : this.selectedChartType;
-
-      const chartData = res.chart
-        ? {
-            labels: res.chart.labels || [],
-            datasets: [
-              {
-                label: res.chart.yAxis || 'Value',
-                data: res.chart.values || [],
-                backgroundColor: this.chartColors,
-                borderRadius: selectedType === 'bar' ? 10 : 0,
-                borderWidth: 1
-              }
-            ]
-          }
-        : null;
-
-      const newMessage = {
-        client: this.selectedClient,
-        question: currentQuestion,
-        response: res,
-        chartData,
-        chartType: selectedType,
-        chartOptions: {
-          responsive: true,
-          maintainAspectRatio: false
-        },
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        createdAt: new Date().toLocaleString()
-      };
-
-      this.messages = [newMessage];
-      this.reportHistory.unshift(newMessage);
-
-      this.question = '';
-      this.activeTab = 'summary';
-    } catch (err) {
-      console.error('Frontend API error:', err);
-      this.errorMessage = 'Something went wrong while fetching the response.';
-    } finally {
-      this.loading = false;
-      this.cdr.detectChanges();
-
-      setTimeout(() => {
-        this.chart?.update();
-      }, 0);
+      this.reportHistory = JSON.parse(localStorage.getItem('reportHistory') || '[]');
+    } catch {
+      this.reportHistory = [];
+      localStorage.removeItem('reportHistory');
     }
   }
 }

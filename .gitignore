@@ -7,3 +7,4 @@ playwright-report.zip
 *.log
 .DS_Store
 .env
+.vscode/

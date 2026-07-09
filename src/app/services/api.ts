@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 
 export interface AskResponse {
   question: string;
+  client?: string;
   sql: string | null;
   summary: string;
   insights: any;
