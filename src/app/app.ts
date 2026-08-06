@@ -1,12 +1,32 @@
-import { Component, OnInit, ChangeDetectorRef, ElementRef, ViewChild } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ChangeDetectorRef,
+  ElementRef,
+  ViewChild
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartConfiguration, ChartType } from 'chart.js';
+import {
+  ChartConfiguration,
+  ChartDataset,
+  ChartType
+} from 'chart.js';
 
-import { Api, AskResponse } from './services/api';
+import {
+  Api,
+  AskResponse,
+  ChartSeries
+} from './services/api';
 
-type PageType = 'dashboard' | 'workspace' | 'saved' | 'history' | 'settings';
+type PageType =
+  | 'dashboard'
+  | 'workspace'
+  | 'saved'
+  | 'history'
+  | 'settings';
+
 type AppChartType = ChartType | 'table';
 
 interface ChatMessage {
@@ -27,7 +47,11 @@ interface StoredReport extends ChatMessage {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, BaseChartDirective],
+  imports: [
+    CommonModule,
+    FormsModule,
+    BaseChartDirective
+  ],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -35,7 +59,7 @@ export class App implements OnInit {
   @ViewChild('mainContent') mainContent!: ElementRef;
 
   question = '';
-  selectedClient = 'Medicines Master';
+  selectedClient = 'All Clients';
   selectedChartType = 'auto';
 
   loading = false;
@@ -43,7 +67,12 @@ export class App implements OnInit {
   mobileMenuOpen = false;
   activePage: PageType = 'dashboard';
 
-  clients = ['Medicines Master', 'Jpharma', 'Vpharma'];
+  clients = [
+    'All Clients',
+    'Hpharma',
+    'Jpharma',
+    'Vpharma'
+  ];
 
   messages: ChatMessage[] = [];
   savedReports: StoredReport[] = [];
@@ -95,7 +124,10 @@ export class App implements OnInit {
   }
 
   handleKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (
+      event.key === 'Enter' &&
+      !event.shiftKey
+    ) {
       event.preventDefault();
       this.askQuestion();
     }
@@ -115,43 +147,58 @@ export class App implements OnInit {
     this.loading = true;
     this.errorMessage = '';
 
-    const client = this.selectedClient || 'Medicines Master';
+    const client =
+      this.selectedClient || 'All Clients';
 
-    this.api.askQuestion(client, trimmedQuestion).subscribe({
-      next: (response: AskResponse) => {
-        const chartType = this.pickChartType(response);
+    this.api
+      .askQuestion(client, trimmedQuestion)
+      .subscribe({
+        next: (response: AskResponse) => {
+          const chartType =
+            this.pickChartType(response);
 
-        const message: ChatMessage = {
-          question: trimmedQuestion,
-          client,
-          timestamp: this.getTime(),
-          response,
-          chartType,
-          chartData: this.buildChartData(response),
-          chartOptions: this.buildChartOptions(chartType)
-        };
+          const message: ChatMessage = {
+            question: trimmedQuestion,
+            client,
+            timestamp: this.getTime(),
+            response,
+            chartType,
+            chartData:
+              this.buildChartData(response),
+            chartOptions:
+              this.buildChartOptions(
+                chartType,
+                response
+              )
+          };
 
-        this.loading = false;
-        this.messages = [message];
-        this.question = '';
-        this.activePage = 'workspace';
+          this.loading = false;
+          this.messages = [message];
+          this.question = '';
+          this.activePage = 'workspace';
 
-        this.addToHistory(message);
+          this.addToHistory(message);
 
-        this.cdr.detectChanges();
+          this.cdr.detectChanges();
 
-        setTimeout(() => {
-          this.scrollToTop();
-        }, 100);
-      },
+          setTimeout(() => {
+            this.scrollToTop();
+          }, 100);
+        },
 
-      error: (error) => {
-        console.error('API error:', error);
-        this.errorMessage = 'Something went wrong. Please check backend connection and try again.';
-        this.loading = false;
-        this.cdr.detectChanges();
-      }
-    });
+        error: error => {
+          console.error(
+            'API error:',
+            error
+          );
+
+          this.errorMessage =
+            'Something went wrong. Please check the backend connection and try again.';
+
+          this.loading = false;
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   useSuggestedQuestion(prompt: string): void {
@@ -163,137 +210,278 @@ export class App implements OnInit {
     this.askQuestion();
   }
 
-  pickChartType(response: AskResponse): AppChartType {
-    if (!response.sql || !response.chart) {
+  pickChartType(
+    response: AskResponse
+  ): AppChartType {
+    if (
+      !response.sql ||
+      !response.chart ||
+      !response.chart.labels?.length
+    ) {
       return 'table';
     }
 
-    if (this.selectedChartType !== 'auto') {
+    if (
+      this.selectedChartType !== 'auto'
+    ) {
       return this.selectedChartType as AppChartType;
     }
 
-    const labels = response.chart.labels || [];
-    const xAxis = String(response.chart.xAxis || '').toLowerCase();
-    const yAxis = String(response.chart.yAxis || '').toLowerCase();
+    const backendType =
+      response.chart.type;
 
-    if (!labels.length) {
-      return 'table';
-    }
-
-    if (
-      xAxis.includes('date') ||
-      xAxis.includes('month') ||
-      xAxis.includes('year')
-    ) {
-      return 'line';
-    }
+    const supportedTypes: AppChartType[] = [
+      'bar',
+      'line',
+      'pie',
+      'doughnut'
+    ];
 
     if (
-      yAxis.includes('percentage') ||
-      yAxis.includes('percent') ||
-      yAxis.includes('rate')
+      supportedTypes.includes(
+        backendType as AppChartType
+      )
     ) {
-      return 'bar';
-    }
-
-    if (labels.length <= 4) {
-      return 'doughnut';
-    }
-
-    if (labels.length > 25) {
-      return 'table';
+      return backendType as AppChartType;
     }
 
     return 'bar';
   }
 
-  updateChartType(message: ChatMessage, selectedType: string): void {
+  updateChartType(
+    message: ChatMessage,
+    selectedType: string
+  ): void {
     message.chartType =
       selectedType === 'auto'
-        ? this.pickChartType(message.response)
-        : (selectedType as AppChartType);
+        ? this.pickChartType(
+            message.response
+          )
+        : (
+            selectedType as AppChartType
+          );
 
-    message.chartData = this.buildChartData(message.response);
-    message.chartOptions = this.buildChartOptions(message.chartType);
+    message.chartData =
+      this.buildChartData(
+        message.response
+      );
+
+    message.chartOptions =
+      this.buildChartOptions(
+        message.chartType,
+        message.response
+      );
+
+    this.cdr.detectChanges();
   }
 
-  buildChartData(response: AskResponse): ChartConfiguration['data'] {
-    return {
-      labels: response.chart?.labels || [],
-      datasets: [
-        {
-          label: response.chart?.yAxis || 'Value',
-          data: response.chart?.values || [],
+  buildChartData(
+    response: AskResponse
+  ): ChartConfiguration['data'] {
+    const chart = response.chart;
+
+    if (!chart) {
+      return {
+        labels: [],
+        datasets: []
+      };
+    }
+
+    const availableSeries =
+      chart.series?.length
+        ? chart.series
+        : [
+            {
+              key:
+                chart.yAxis || 'value',
+              label:
+                this.formatChartLabel(
+                  chart.yAxis || 'Value'
+                ),
+              values:
+                chart.values || []
+            }
+          ];
+
+    const datasets:
+      ChartDataset[] =
+      availableSeries.map(
+        (
+          series: ChartSeries
+        ): ChartDataset => ({
+          label:
+            series.label ||
+            this.formatChartLabel(
+              series.key
+            ),
+          data: series.values,
           borderWidth: 2
-        }
-      ]
+        })
+      );
+
+    return {
+      labels: chart.labels || [],
+      datasets
     };
   }
 
-  buildChartOptions(chartType: AppChartType): ChartConfiguration['options'] {
-    const isAxisChart = chartType === 'bar' || chartType === 'line';
+  buildChartOptions(
+    chartType: AppChartType,
+    response: AskResponse
+  ): ChartConfiguration['options'] {
+    const chart = response.chart;
+
+    const isAxisChart =
+      chartType === 'bar' ||
+      chartType === 'line';
+
+    const isHorizontal =
+      chartType === 'bar' &&
+      chart?.orientation ===
+        'horizontal';
+
+    const hasMultipleSeries =
+      (chart?.series?.length || 0) > 1;
 
     return {
       responsive: true,
       maintainAspectRatio: false,
+
+      indexAxis:
+        isHorizontal
+          ? 'y'
+          : 'x',
+
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+
       plugins: {
         legend: {
-          display: true,
+          display:
+            hasMultipleSeries ||
+            chartType === 'pie' ||
+            chartType ===
+              'doughnut',
           position: 'top'
+        },
+
+        tooltip: {
+          enabled: true
         }
       },
+
       scales: isAxisChart
         ? {
             x: {
+              beginAtZero:
+                isHorizontal,
+
+              stacked: false,
+
               ticks: {
-                autoSkip: true,
-                maxRotation: 45,
+                autoSkip:
+                  !isHorizontal,
+                maxRotation:
+                  isHorizontal
+                    ? 0
+                    : 45,
                 minRotation: 0
               }
             },
+
             y: {
-              beginAtZero: true
+              beginAtZero: true,
+              stacked: false,
+
+              ticks: {
+                autoSkip: false
+              }
             }
           }
         : undefined
     };
   }
 
-  saveCurrentReport(message: ChatMessage): void {
-    const alreadySaved = this.savedReports.some(
-      report =>
-        report.question === message.question &&
-        report.client === message.client &&
-        report.timestamp === message.timestamp
-    );
+  formatChartLabel(
+    value: string
+  ): string {
+    return value
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, character =>
+        character.toUpperCase()
+      );
+  }
+
+  saveCurrentReport(
+    message: ChatMessage
+  ): void {
+    const alreadySaved =
+      this.savedReports.some(
+        report =>
+          report.question ===
+            message.question &&
+          report.client ===
+            message.client &&
+          report.timestamp ===
+            message.timestamp
+      );
 
     if (alreadySaved) {
       return;
     }
 
-    const savedReport: StoredReport = {
+    const savedReport:
+      StoredReport = {
       ...message,
-      savedAt: new Date().toLocaleString()
+      savedAt:
+        new Date().toLocaleString()
     };
 
-    this.savedReports.unshift(savedReport);
-    this.safeSetLocalStorage('savedReports', this.savedReports);
+    this.savedReports.unshift(
+      savedReport
+    );
+
+    this.safeSetLocalStorage(
+      'savedReports',
+      this.savedReports
+    );
   }
 
-  addToHistory(message: ChatMessage): void {
-    const historyReport: StoredReport = {
+  addToHistory(
+    message: ChatMessage
+  ): void {
+    const historyReport:
+      StoredReport = {
       ...message,
-      createdAt: new Date().toLocaleString()
+      createdAt:
+        new Date().toLocaleString()
     };
 
-    this.reportHistory.unshift(historyReport);
-    this.reportHistory = this.reportHistory.slice(0, 20);
+    this.reportHistory.unshift(
+      historyReport
+    );
 
-    this.safeSetLocalStorage('reportHistory', this.reportHistory);
+    this.reportHistory =
+      this.reportHistory.slice(0, 20);
+
+    this.safeSetLocalStorage(
+      'reportHistory',
+      this.reportHistory
+    );
   }
 
-  openSavedReport(report: StoredReport): void {
-    this.messages = [report];
+  openSavedReport(
+    report: StoredReport
+  ): void {
+    const restoredReport =
+      this.restoreStoredReport(report);
+
+    this.messages = [
+      restoredReport
+    ];
+
     this.activePage = 'workspace';
     this.closeMobileMenu();
 
@@ -302,24 +490,63 @@ export class App implements OnInit {
     }, 100);
   }
 
-  openHistoryReport(report: StoredReport): void {
-    this.messages = [report];
+  openHistoryReport(
+    report: StoredReport
+  ): void {
+    const restoredReport =
+      this.restoreStoredReport(report);
+
+    this.messages = [
+      restoredReport
+    ];
+
     this.activePage = 'workspace';
     this.closeMobileMenu();
 
     setTimeout(() => {
       this.scrollToTop();
     }, 100);
+  }
+
+  restoreStoredReport(
+    report: StoredReport
+  ): StoredReport {
+    const chartType =
+      this.pickChartType(
+        report.response
+      );
+
+    return {
+      ...report,
+      chartType,
+      chartData:
+        this.buildChartData(
+          report.response
+        ),
+      chartOptions:
+        this.buildChartOptions(
+          chartType,
+          report.response
+        )
+    };
   }
 
   clearSavedReports(): void {
     this.savedReports = [];
-    localStorage.removeItem('savedReports');
+    localStorage.removeItem(
+      'savedReports'
+    );
   }
 
   clearHistory(): void {
     this.reportHistory = [];
-    localStorage.removeItem('reportHistory');
+    localStorage.removeItem(
+      'reportHistory'
+    );
+  }
+
+  goHome(): void {
+    this.closeReport();
   }
 
   closeReport(): void {
@@ -329,6 +556,7 @@ export class App implements OnInit {
     this.loading = false;
     this.selectedChartType = 'auto';
     this.activePage = 'dashboard';
+
     this.closeMobileMenu();
 
     setTimeout(() => {
@@ -346,38 +574,63 @@ export class App implements OnInit {
   }
 
   toggleMobileMenu(): void {
-    this.mobileMenuOpen = !this.mobileMenuOpen;
+    this.mobileMenuOpen =
+      !this.mobileMenuOpen;
   }
 
   closeMobileMenu(): void {
     this.mobileMenuOpen = false;
   }
 
-  copySql(sql: string | null): void {
+  copySql(
+    sql: string | null
+  ): void {
     if (!sql) {
       return;
     }
 
-    navigator.clipboard.writeText(sql);
+    navigator.clipboard
+      .writeText(sql)
+      .catch(error => {
+        console.error(
+          'Copy SQL failed:',
+          error
+        );
+      });
   }
 
-  objectKeys(obj: any): string[] {
-    return obj ? Object.keys(obj) : [];
+  objectKeys(
+    obj: unknown
+  ): string[] {
+    if (
+      obj &&
+      typeof obj === 'object' &&
+      !Array.isArray(obj)
+    ) {
+      return Object.keys(obj);
+    }
+
+    return [];
   }
 
   getTime(): string {
-    return new Date().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return new Date()
+      .toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
   }
 
   scrollToTop(): void {
-    if (this.mainContent?.nativeElement) {
-      this.mainContent.nativeElement.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
+    if (
+      this.mainContent?.nativeElement
+    ) {
+      this.mainContent.nativeElement.scrollTo(
+        {
+          top: 0,
+          behavior: 'smooth'
+        }
+      );
     }
 
     window.scrollTo({
@@ -386,27 +639,64 @@ export class App implements OnInit {
     });
   }
 
-  safeSetLocalStorage(key: string, value: unknown): void {
+  safeSetLocalStorage(
+    key: string,
+    value: unknown
+  ): void {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(
+        key,
+        JSON.stringify(value)
+      );
     } catch (error) {
-      console.error(`LocalStorage failed for ${key}`, error);
+      console.error(
+        `LocalStorage failed for ${key}`,
+        error
+      );
     }
   }
 
   loadLocalStorage(): void {
     try {
-      this.savedReports = JSON.parse(localStorage.getItem('savedReports') || '[]');
+      const savedReports =
+        JSON.parse(
+          localStorage.getItem(
+            'savedReports'
+          ) || '[]'
+        ) as StoredReport[];
+
+      this.savedReports =
+        savedReports.map(report =>
+          this.restoreStoredReport(
+            report
+          )
+        );
     } catch {
       this.savedReports = [];
-      localStorage.removeItem('savedReports');
+      localStorage.removeItem(
+        'savedReports'
+      );
     }
 
     try {
-      this.reportHistory = JSON.parse(localStorage.getItem('reportHistory') || '[]');
+      const reportHistory =
+        JSON.parse(
+          localStorage.getItem(
+            'reportHistory'
+          ) || '[]'
+        ) as StoredReport[];
+
+      this.reportHistory =
+        reportHistory.map(report =>
+          this.restoreStoredReport(
+            report
+          )
+        );
     } catch {
       this.reportHistory = [];
-      localStorage.removeItem('reportHistory');
+      localStorage.removeItem(
+        'reportHistory'
+      );
     }
   }
 }
