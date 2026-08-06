@@ -7,3 +7,5 @@ playwright-report.zip
 *.log
 .DS_Store
 .env
+echo ".vscode/" >> .gitignore
+.vscode/
