@@ -1,11 +1,15 @@
 node_modules/
 .angular/
 dist/
+
 playwright-report/
 test-results/
 playwright-report.zip
+
 *.log
 .DS_Store
+
 .env
-echo ".vscode/" >> .gitignore
+.env.*
+
 .vscode/
